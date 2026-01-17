@@ -21,13 +21,16 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 queues = {}
+
 ytdlp_opts = {
-    "format": "bestaudio",
+    "format": "bestaudio/best",   # intenta audio primero, si no, toma lo mejor
     "quiet": True,
     "noplaylist": True,
-    "extractor_args": {"youtube": {"player_client": ["web"]}},
+    "extractor_args": {"youtube": {"player_client": ["android"]}},  # más confiable que "web"
     "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
-    "cookiefile": "/root/musicologo/cookies.txt"
+    "cookiefile": "/root/musicologo/cookies.txt",
+    "nocheckcertificate": True,   # opcional, ayuda con SSL
+    "geo_bypass": True,           # opcional, evita bloqueos regionales
 }
 
 # Opciones de FFmpeg
