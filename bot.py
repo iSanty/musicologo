@@ -1,12 +1,9 @@
 
 import discord
+import opuslib
 
-try:
-    if not discord.opus.is_loaded():
-        import opuslib
-        discord.opus.load_opus('opuslib')  # Forzar a usar opuslib
-except Exception as e:
-    print(f"❌ Error cargando Opus: {e}")
+if not discord.opus.is_loaded():
+    discord.opus.load_opus('opuslib')  # Fuerza a usar opuslib
 
 
 from discord.ext import commands
