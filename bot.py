@@ -1,4 +1,13 @@
 import discord
+
+
+import opuslib
+
+# Cargar manualmente opuslib como el backend de Opus
+if not discord.opus.is_loaded():
+discord.opus.load_opus('opuslib')
+
+
 from discord.ext import commands
 import yt_dlp
 import asyncio
@@ -13,20 +22,18 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 queues = {}
+
+# Opciones de yt-dlp
 ytdlp_opts = {
     "format": "bestaudio",
     "quiet": True,
     "noplaylist": True,
-    "default_search": "ytsearch",
-    "cookiefile": "/root/musicologo/cookies.txt",  # <-- ruta absoluta
-    "extractor_args": {
-        "youtube": {
-            "player_client": ["android"],  # podés probar quitarlo si sigue fallando
-            "skip": ["dash", "hls"],
-        }
-    },
+    "extractor_args": {"youtube": {"player_client": ["web"]}},
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
+    "cookiefile": "/root/musicologo/cookies.txt"  # <-- ruta absoluta a tu archivo de cookies
 }
 
+# Opciones de FFmpeg
 ffmpeg_opts = {
     "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
     "options": "-vn",
@@ -52,6 +59,7 @@ async def play_next(ctx):
 async def join(ctx):
     if ctx.author.voice:
         await ctx.author.voice.channel.connect()
+        await ctx.send(f"✅ Conectado a {ctx.author.voice.channel.name}")
     else:
         await ctx.send("❌ Tenés que estar en un canal de voz.")
 
@@ -64,12 +72,15 @@ async def play(ctx, *, query):
     if not ctx.voice_client:
         await ctx.author.voice.channel.connect()
 
-    with yt_dlp.YoutubeDL(ytdlp_opts) as ydl:
-        info = ydl.extract_info(query, download=False)
-        if "entries" in info:
-            info = info["entries"][0]
-        url = info["url"]
-        title = info["title"]
+    try:
+        with yt_dlp.YoutubeDL(ytdlp_opts) as ydl:
+            info = ydl.extract_info(query, download=False)
+            if "entries" in info:
+                info = info["entries"][0]
+            url = info["url"]
+            title = info["title"]
+    except Exception as e:
+        return await ctx.send(f"❌ No se pudo reproducir: {e}")
 
     queues.setdefault(ctx.guild.id, []).append(url)
 
