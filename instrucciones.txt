@@ -1,0 +1,33 @@
+
+
+
+
+
+
+Ver logs en tiempo real:
+
+sudo tail -f /root/musicologo/musicologo.log
+
+
+
+
+
+Reiniciar manualmente:
+
+sudo systemctl restart musicologo.service
+
+
+
+
+
+Parar el bot:
+
+sudo systemctl stop musicologo.service
+
+
+
+
+Revisar estado:
+
+sudo systemctl status musicologo.service
+
