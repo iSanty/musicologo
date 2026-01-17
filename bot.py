@@ -13,16 +13,15 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 queues = {}
-
 ytdlp_opts = {
-    "format": "bestaudio[ext=m4a]/bestaudio",
+    "format": "bestaudio",
     "quiet": True,
     "noplaylist": True,
     "default_search": "ytsearch",
-    "cookiefile": "cookies.txt",
+    "cookiefile": "/root/musicologo/cookies.txt",  # <-- ruta absoluta
     "extractor_args": {
         "youtube": {
-            "player_client": ["android"],
+            "player_client": ["android"],  # podés probar quitarlo si sigue fallando
             "skip": ["dash", "hls"],
         }
     },
