@@ -97,7 +97,8 @@ async def play(ctx, *, query):
     except Exception as e:
         return await ctx.send(f"❌ No se pudo reproducir: {e}")
 
-    queues.setdefault(ctx.guild.id, []).append(query)
+    queues.setdefault(ctx.guild.id, []).append(audio_url)
+
 
     if not ctx.voice_client.is_playing():
         await play_next(ctx)
