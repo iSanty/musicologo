@@ -1,6 +1,10 @@
-
 import discord
+import ctypes
+
+# Ruta donde está libopus.so en tu VPS
+discord.opus.load_opus("/usr/lib/x86_64-linux-gnu/libopus.so")
 print(discord.opus.is_loaded())  # debería dar True
+
 
 
 from discord.ext import commands
