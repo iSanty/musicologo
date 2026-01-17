@@ -1,9 +1,6 @@
 
 import discord
-import opuslib
-
-if not discord.opus.is_loaded():
-    discord.opus.load_opus('opuslib')  # Fuerza a usar opuslib
+print(discord.opus.is_loaded())  # debería dar True
 
 
 from discord.ext import commands
