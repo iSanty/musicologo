@@ -35,6 +35,8 @@ ytdlp_opts = {
     "cookiefile": "/root/musicologo/cookies.txt",  # si necesitás cookies
     "default_search": "ytsearch",  # permite buscar por texto
     "source_address": "0.0.0.0",   # evita bloqueos de IP
+    "jsruntimes": "node",
+    "remote_components": "ejs:github",
 }
 
 # Opciones FFmpeg para streaming
