@@ -13,12 +13,12 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 queues = {}
-
 ytdlp_opts = {
     "format": "bestaudio/best",
     "quiet": True,
     "noplaylist": True,
     "default_search": "ytsearch",
+    "cookiefile": "cookies.txt",
 }
 
 ffmpeg_opts = {
