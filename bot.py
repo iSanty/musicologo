@@ -33,12 +33,13 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # ========================
 # YT-DLP / FFMPEG
 # ========================
-
 YTDLP_OPTS = {
-    "format": "bestaudio/best",
+    "format": "bestaudio[ext=m4a]/bestaudio/best",
     "quiet": True,
     "noplaylist": True,
     "cookiefile": "cookies.txt",
+    "nocheckcertificate": True,
+    "extractor_args": {"youtube": {"player_client": ["android"]}},
 }
 
 
