@@ -71,7 +71,8 @@ async def play(ctx: commands.Context, *, query: str):
         await join(ctx)
 
     player: wavelink.Player = ctx.voice_client
-    tracks = await wavelink.Playable.search(query)
+    tracks = await wavelink.Playable.search(f"scsearch:{query}")
+
 
     if not tracks:
         return await ctx.send("❌ No encontré nada.")
