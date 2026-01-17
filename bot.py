@@ -32,6 +32,7 @@ ytdlp_opts = {
     "extract_flat": False,  # da URL directa
     "nocheckcertificate": True,
     "geo_bypass": True,
+    "cookiefile": "/root/musicologo/cookies.txt",  # si necesitás cookies
     "default_search": "ytsearch",  # permite buscar por texto
     "source_address": "0.0.0.0",   # evita bloqueos de IP
 }
