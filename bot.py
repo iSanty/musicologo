@@ -1,103 +1,92 @@
-import os
-import asyncio
-import logging
 import discord
 from discord.ext import commands
-import wavelink
+import yt_dlp
+import asyncio
+import os
 from dotenv import load_dotenv
 
-# ========================
-# Configuración base
-# ========================
-
 load_dotenv()
-
 TOKEN = os.getenv("TOKEN")
-LAVALINK_HOST = os.getenv("LAVALINK_HOST", "127.0.0.1")
-LAVALINK_PORT = int(os.getenv("LAVALINK_PORT", "2333"))
-LAVALINK_PASSWORD = os.getenv("LAVALINK_PASSWORD", "youshallnotpass")
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
-
-log = logging.getLogger("musicologo")
 
 intents = discord.Intents.default()
 intents.message_content = True
-
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# ========================
-# Lavalink / Wavelink
-# ========================
+queues = {}
+
+ytdlp_opts = {
+    "format": "bestaudio/best",
+    "quiet": True,
+    "noplaylist": True,
+    "default_search": "ytsearch",
+}
+
+ffmpeg_opts = {
+    "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
+    "options": "-vn",
+}
+
 
 @bot.event
 async def on_ready():
-    log.info(f"🎵 Musicólogo conectado como {bot.user} (ID: {bot.user.id})")
+    print(f"🎵 Conectado como {bot.user}")
 
-    if not wavelink.Pool.nodes:
-        await wavelink.Pool.connect(
-            client=bot,
-            nodes=[
-                wavelink.Node(
-                    uri=f"http://{LAVALINK_HOST}:{LAVALINK_PORT}",
-                    password=LAVALINK_PASSWORD,
-                )
-            ],
-        )
-        log.info("✅ Conectado a Lavalink")
 
-# ========================
-# Comandos
-# ========================
+async def play_next(ctx):
+    if not queues.get(ctx.guild.id):
+        await ctx.voice_client.disconnect()
+        return
+
+    url = queues[ctx.guild.id].pop(0)
+    source = discord.FFmpegPCMAudio(url, **ffmpeg_opts)
+    ctx.voice_client.play(source, after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx), bot.loop))
+
 
 @bot.command()
-async def join(ctx: commands.Context):
-    if not ctx.author.voice:
-        return await ctx.send("Tenés que estar en un canal de voz.")
-
-    if ctx.voice_client:
-        await ctx.voice_client.move_to(ctx.author.voice.channel)
+async def join(ctx):
+    if ctx.author.voice:
+        await ctx.author.voice.channel.connect()
     else:
-        await ctx.author.voice.channel.connect(cls=wavelink.Player)
+        await ctx.send("❌ Tenés que estar en un canal de voz.")
 
-    await ctx.send("🎧 Conectado al canal.")
 
 @bot.command()
-async def play(ctx: commands.Context, *, query: str):
+async def play(ctx, *, query):
+    if not ctx.author.voice:
+        return await ctx.send("❌ Tenés que estar en un canal de voz.")
+
     if not ctx.voice_client:
-        await join(ctx)
+        await ctx.author.voice.channel.connect()
 
-    player: wavelink.Player = ctx.voice_client
-    tracks = await wavelink.Playable.search(f"scsearch:{query}")
+    with yt_dlp.YoutubeDL(ytdlp_opts) as ydl:
+        info = ydl.extract_info(query, download=False)
+        if "entries" in info:
+            info = info["entries"][0]
+        url = info["url"]
+        title = info["title"]
 
+    queues.setdefault(ctx.guild.id, []).append(url)
 
-    if not tracks:
-        return await ctx.send("❌ No encontré nada.")
+    if not ctx.voice_client.is_playing():
+        await play_next(ctx)
+        await ctx.send(f"▶️ Reproduciendo: **{title}**")
+    else:
+        await ctx.send(f"➕ Agregado a la cola: **{title}**")
 
-    track = tracks[0]
-    await player.play(track)
-    await ctx.send(f"▶️ Reproduciendo: **{track.title}**")
 
 @bot.command()
 async def skip(ctx):
-    if ctx.voice_client:
-        await ctx.voice_client.stop()
-        await ctx.send("⏭️ Saltado.")
+    if ctx.voice_client and ctx.voice_client.is_playing():
+        ctx.voice_client.stop()
+        await ctx.send("⏭ Saltado.")
+
 
 @bot.command()
 async def stop(ctx):
     if ctx.voice_client:
+        queues[ctx.guild.id] = []
         await ctx.voice_client.disconnect()
-        await ctx.send("⏹️ Detenido.")
+        await ctx.send("⏹ Detenido y desconectado.")
 
-# ========================
-# Run
-# ========================
-
-if not TOKEN:
-    raise RuntimeError("TOKEN no definido en .env")
 
 bot.run(TOKEN)
