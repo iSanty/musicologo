@@ -21,15 +21,13 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 queues = {}
-
-# Opciones de yt-dlp
 ytdlp_opts = {
     "format": "bestaudio",
     "quiet": True,
     "noplaylist": True,
     "extractor_args": {"youtube": {"player_client": ["web"]}},
     "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
-    "cookiefile": "/root/musicologo/cookies.txt"  # <-- ruta absoluta a tu archivo de cookies
+    "cookiefile": "/root/musicologo/cookies.txt"
 }
 
 # Opciones de FFmpeg
