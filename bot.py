@@ -5,6 +5,13 @@ import asyncio
 import os
 from dotenv import load_dotenv
 
+import ctypes
+
+# Ruta donde está libopus.so en tu VPS
+discord.opus.load_opus("/usr/lib/x86_64-linux-gnu/libopus.so")
+print(discord.opus.is_loaded())  # debería dar True
+
+
 # Cargar token
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
