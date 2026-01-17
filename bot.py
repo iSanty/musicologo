@@ -5,7 +5,7 @@ import opuslib
 
 # Cargar manualmente opuslib como el backend de Opus
 if not discord.opus.is_loaded():
-discord.opus.load_opus('opuslib')
+    discord.opus.load_opus('opuslib')
 
 
 from discord.ext import commands
