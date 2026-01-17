@@ -3,8 +3,8 @@ import asyncio
 import logging
 import discord
 from discord.ext import commands
-import yt_dlp
 from dotenv import load_dotenv
+import wavelink
 
 # ========================
 # Configuración base
@@ -13,10 +13,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 TOKEN = os.getenv("TOKEN")
-FFMPEG_PATH = os.getenv("FFMPEG_PATH", "ffmpeg")
-
-print("FFMPEG_PATH =", repr(FFMPEG_PATH))
-
+LAVALINK_URI = os.getenv("LAVALINK_URI", "http://127.0.0.1:2333")
+LAVALINK_PASSWORD = os.getenv("LAVALINK_PASSWORD", "youshallnotpass")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -31,28 +29,10 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # ========================
-# YT-DLP / FFMPEG
-# ========================
-YTDLP_OPTS = {
-    "format": "bestaudio[ext=m4a]/bestaudio/best",
-    "quiet": True,
-    "noplaylist": True,
-    "cookiefile": "cookies.txt",
-    "nocheckcertificate": True,
-    "extractor_args": {"youtube": {"player_client": ["android"]}},
-}
-
-
-FFMPEG_OPTS = {
-    "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
-    "options": "-vn",
-}
-
-# ========================
 # Estado por servidor
 # ========================
 
-queues: dict[int, list[tuple[str, str]]] = {}
+queues: dict[int, list[wavelink.Playable]] = {}
 
 def get_queue(guild_id: int):
     return queues.setdefault(guild_id, [])
@@ -65,31 +45,27 @@ def get_queue(guild_id: int):
 async def on_ready():
     log.info(f"🎵 Musicólogo conectado como {bot.user} (ID: {bot.user.id})")
 
+    node = wavelink.Node(
+        uri=LAVALINK_URI,
+        password=LAVALINK_PASSWORD,
+    )
+
+    await wavelink.Pool.connect(client=bot, nodes=[node])
+
 # ========================
 # Core playback
 # ========================
 
-async def play_next(ctx: commands.Context):
+async def play_next(player: wavelink.Player, ctx: commands.Context):
     queue = get_queue(ctx.guild.id)
 
     if not queue:
+        await player.disconnect()
         return
 
-    url, title = queue.pop(0)
-
-    source = discord.FFmpegPCMAudio(
-        url,
-        executable=FFMPEG_PATH,
-        **FFMPEG_OPTS,
-    )
-
-    def after_playing(error):
-        if error:
-            log.error(f"Error reproduciendo audio: {error}")
-        asyncio.run_coroutine_threadsafe(play_next(ctx), bot.loop)
-
-    ctx.voice_client.play(source, after=after_playing)
-    await ctx.send(f"▶️ **Reproduciendo:** {title}")
+    track = queue.pop(0)
+    await player.play(track)
+    await ctx.send(f"▶️ **Reproduciendo:** {track.title}")
 
 # ========================
 # Comandos
@@ -98,55 +74,51 @@ async def play_next(ctx: commands.Context):
 @bot.command()
 async def join(ctx):
     if not ctx.author.voice:
-        await ctx.send("Tenés que estar en un canal de voz.")
-        return
+        return await ctx.send("Tenés que estar en un canal de voz.")
 
     channel = ctx.author.voice.channel
 
     if ctx.voice_client:
         await ctx.voice_client.move_to(channel)
     else:
-        await channel.connect()
+        await channel.connect(cls=wavelink.Player)
 
     await ctx.send(f"🎧 Conectado a **{channel.name}**")
 
 @bot.command()
 async def leave(ctx):
     if ctx.voice_client:
-        await ctx.voice_client.disconnect()
         get_queue(ctx.guild.id).clear()
-        await ctx.send("👋 Desconectado del canal.")
+        await ctx.voice_client.disconnect()
+        await ctx.send("👋 Desconectado.")
     else:
         await ctx.send("No estoy conectado.")
 
 @bot.command()
-async def play(ctx, url: str):
+async def play(ctx, *, search: str):
     if not ctx.voice_client:
         await join(ctx)
 
-    try:
-        with yt_dlp.YoutubeDL(YTDLP_OPTS) as ydl:
-            info = ydl.extract_info(url, download=False)
-            audio_url = info["url"]
-            title = info.get("title", "Desconocido")
-    except Exception as e:
-        log.error(e)
-        await ctx.send("❌ No pude obtener el audio.")
-        return
+    player: wavelink.Player = ctx.voice_client
 
+    tracks = await wavelink.Playable.search(search)
+    if not tracks:
+        return await ctx.send("❌ No encontré resultados.")
+
+    track = tracks[0]
     queue = get_queue(ctx.guild.id)
-    queue.append((audio_url, title))
+    queue.append(track)
 
-    await ctx.send(f"➕ Agregado a la cola: **{title}**")
+    await ctx.send(f"➕ Agregado: **{track.title}**")
 
-    if not ctx.voice_client.is_playing():
-        await play_next(ctx)
+    if not player.playing:
+        await play_next(player, ctx)
 
 @bot.command()
 async def skip(ctx):
-    if ctx.voice_client and ctx.voice_client.is_playing():
-        ctx.voice_client.stop()
-        await ctx.send("⏭️ Canción saltada.")
+    if ctx.voice_client and ctx.voice_client.playing:
+        await ctx.voice_client.stop()
+        await ctx.send("⏭️ Saltado.")
     else:
         await ctx.send("No hay nada reproduciéndose.")
 
@@ -154,10 +126,23 @@ async def skip(ctx):
 async def stop(ctx):
     if ctx.voice_client:
         get_queue(ctx.guild.id).clear()
-        ctx.voice_client.stop()
+        await ctx.voice_client.stop()
         await ctx.send("⏹️ Música detenida y cola limpia.")
     else:
         await ctx.send("No estoy reproduciendo nada.")
+
+# ========================
+# Auto-play siguiente track
+# ========================
+
+@bot.event
+async def on_wavelink_track_end(payload):
+    player = payload.player
+    guild = player.guild
+    channel = guild.text_channels[0]  # fallback
+    fake_ctx = await bot.get_context(await channel.send(""))
+
+    await play_next(player, fake_ctx)
 
 # ========================
 # Run
